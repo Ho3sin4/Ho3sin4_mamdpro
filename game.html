@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mamad Pro</title>
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        
+        #menu {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #111, #000);
+            z-index: 10;
+        }
+        
+        #start {
+            font-size: 36px;
+            padding: 20px 60px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            background: linear-gradient(45deg, gold, orange);
+            box-shadow: 0 0 40px gold;
+        }
+        
+        canvas {
+            display: block;
+            margin: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="menu">
+        <button id="start">🔥 ممد پرو 🔥</button>
+    </div>
+
+    <canvas id="game" width="900" height="300"></canvas>
+
+    <script>
+        // ===== Canvas =====
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+
+        // ===== Images =====
+        const boyImg = new Image();
+        boyImg.src = "boy.jpg";
+        const flagImg = new Image();
+        flagImg.src = "flag.png";
+        const soldierImg = new Image();
+        soldierImg.src = "soldier.jpg";
+        const bossImg = new Image();
+        bossImg.src = "boss.jpg";
+
+        // ===== Game State =====
+        let started = false;
+        let score = 0;
+        let gravity = 0.8;
+        let baseSpeed = 6;
+        let speed = baseSpeed;
+
+        let phase = "run";
+        // run | soldiers | boss
+
+        // ===== Player =====
+        const player = {
+            x: 80,
+            y: 200,
+            w: 45,
+            h: 60,
+            dy: 0,
+            jump: false
+        };
+
+        // ===== Objects =====
+        let obstacles = [];
+        let particles = [];
+        let soldiersLeft = 10;
+
+        // ===== Boss Click =====
+        let clicking = false;
+        let clickPlayer = 0;
+        let clickBoss = 0;
+
+        // ===== Start =====
+        document.getElementById("start").onclick = () => {
+            document.getElementById("menu").style.display = "none";
+            started = true;
+            loop();
+        };
+
+        // ===== Controls =====
+        document.addEventListener("keydown", e => {
+            if (e.code === "Space" && !player.jump && phase !== "boss") {
+                player.dy = -14;
+                player.jump = true;
+            }
+        });
+
+        document.addEventListener("click", () => {
+            if (!clicking) return;
+            clickPlayer++;
+            if (clickPlayer % 4 === 0) clickBoss++;
+
+            if (clickPlayer >= 40) {
+                alert("🔥 باس رو بردی!");
+                location.reload();
+            }
+            if (clickBoss >= 40) {
+                alert("💀 باس شکستت داد");
+                location.reload();
+            }
+        });
+
+        // ===== Functions =====
+        function spawnObstacle() {
+            obstacles.push({
+                x: canvas.width,
+                y: 210,
+                w: 40,
+                h: 50,
+                type: phase === "soldiers" ? "soldier" : "flag"
+            });
+        }
+
+        function update() {
+            if (phase === "boss") return;
+
+            // player physics
+            player.y += player.dy;
+            player.dy += gravity;
+            if (player.y >= 200) {
+                player.y = 200;
+                player.dy = 0;
+                player.jump = false;
+            }
+
+            // obstacles
+            obstacles.forEach(o => o.x -= speed);
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < 450) {
+                spawnObstacle();
+            }
+            obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+            // collision
+            obstacles.forEach((o, i) => {
+                if (
+                    player.x < o.x + o.w &&
+                    player.x + player.w > o.x &&
+                    player.y < o.y + o.h &&
+                    player.y + player.h > o.y
+                ) {
+                    if (phase === "soldiers" && o.type === "soldier") {
+                        obstacles.splice(i, 1);
+                        soldiersLeft--;
+                    } else {
+                        alert("💀 بازی تموم شد");
+                        location.reload();
+                    }
+                }
+            });
+
+            // score & speed
+            score++;
+            if (score % 1500 === 0 && speed < 12) speed += 0.5;
+
+            // phase changes
+            if (score >= 6000 && phase === "run") {
+                phase = "soldiers";
+                obstacles = [];
+                soldiersLeft = 10;
+            }
+
+            if (phase === "soldiers" && soldiersLeft <= 0) {
+                phase = "boss";
+                clicking = true;
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = "#050505";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // ground
+            ctx.fillStyle = "#333";
+            ctx.fillRect(0, 260, canvas.width, 4);
+
+            // player
+            ctx.drawImage(boyImg, player.x, player.y, player.w, player.h);
+
+            // obstacles
+            obstacles.forEach(o => {
+                if (o.type === "soldier") {
+                    ctx.drawImage(soldierImg, o.x, o.y, o.w, o.h);
+                } else {
+                    ctx.drawImage(flagImg, o.x, o.y, o.w, o.h);
+                }
+            });
+
+            // boss fight screen
+            if (phase === "boss") {
+                ctx.fillStyle = "rgba(0,0,0,0.8)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(bossImg, canvas.width / 2 - 80, 80, 160, 160);
+
+                ctx.fillStyle = "#fff";
+                ctx.font = "20px sans-serif";
+                ctx.fillText("کلیک کن!!!", 380, 50);
+                ctx.fillText("تو: " + clickPlayer, 200, 280);
+                ctx.fillText("باس: " + clickBoss, 600, 280);
+            }
+
+            // score
+            ctx.fillStyle = "#0f0";
+            ctx.font = "18px sans-serif";
+            ctx.fillText("Score: " + score, 20, 30);
+        }
+
+        function loop() {
+            if (!started) return;
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+    </script>
+
+</body>
+
+</html>
