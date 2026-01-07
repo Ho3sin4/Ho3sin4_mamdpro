@@ -82,6 +82,13 @@
             jump: false
         };
 
+        function jump() {
+            if (!player.jump && phase !== "boss") {
+                player.dy = -14;
+                player.jump = true;
+            }
+        }
+
         // ===== Objects =====
         let obstacles = [];
         let particles = [];
@@ -101,11 +108,12 @@
 
         // ===== Controls =====
         document.addEventListener("keydown", e => {
-            if (e.code === "Space" && !player.jump && phase !== "boss") {
-                player.dy = -14;
-                player.jump = true;
-            }
+            if (e.code === "Space") jump();
         });
+        document.addEventListener("keydown", e => {
+            if (e.code === "Space") jump();
+        });
+
 
         document.addEventListener("click", () => {
             if (!clicking) return;
