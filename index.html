@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>White Circle Blade</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>جنگ ما</title>
 
     <style>
         html,
@@ -25,7 +25,7 @@
         #menu {
             position: fixed;
             inset: 0;
-            background: radial-gradient(#111, #000);
+            background: #000;
             color: white;
             display: flex;
             flex-direction: column;
@@ -35,10 +35,9 @@
         }
         
         #menu button {
-            padding: 15px 40px;
+            padding: 18px 50px;
             font-size: 22px;
-            border: none;
-            border-radius: 30px;
+            border-radius: 40px;
         }
         /* HUD */
         
@@ -47,39 +46,40 @@
             top: 10px;
             left: 10px;
             color: white;
-            z-index: 3;
+            font-size: 16px;
+            z-index: 5;
         }
-        /* MUSIC BTN */
+        /* MUSIC */
         
         #musicBtn {
             position: fixed;
             top: 10px;
             right: 10px;
-            z-index: 3;
+            padding: 10px 16px;
+            border-radius: 30px;
             background: #111;
             color: white;
-            padding: 8px 14px;
-            border-radius: 20px;
+            z-index: 5;
         }
         /* MOBILE CONTROLS */
         
         .joy {
             position: fixed;
-            bottom: 30px;
-            width: 120px;
-            height: 120px;
+            bottom: 20px;
+            width: 130px;
+            height: 130px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .08);
         }
         
         .knob {
             position: absolute;
-            width: 50px;
-            height: 50px;
+            width: 55px;
+            height: 55px;
             background: white;
             border-radius: 50%;
-            left: 35px;
-            top: 35px;
+            left: 37px;
+            top: 37px;
         }
         
         #joyMove {
@@ -93,36 +93,37 @@
         #attackBtn {
             position: fixed;
             bottom: 180px;
-            right: 40px;
-            width: 70px;
-            height: 70px;
+            right: 45px;
+            width: 85px;
+            height: 85px;
             border-radius: 50%;
             background: darkred;
             color: white;
-            font-size: 30px;
+            font-size: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 3;
+            z-index: 5;
         }
     </style>
 </head>
 
-<body tabindex="0">
+<body>
 
     <audio id="bgMusic" loop>
-    <source src="music.mp3" type="audio/mpeg">
+<source src="music.mp3" type="audio/mpeg">
 </audio>
 
     <div id="menu">
         <h1>⚔️ White Circle Blade</h1>
+        <p id="record"></p>
         <button onclick="startGame()">START</button>
     </div>
 
     <canvas id="game"></canvas>
 
     <div id="hud">
-        ❤️ <span id="hp">100</span><br> ⭐ <span id="score">0</span><br> 🔥 Level <span id="level">1</span>
+        ❤️ <span id="hp"></span><br> ⭐ <span id="score"></span><br> 🔥 Lvl <span id="level"></span><br> ⚡ Combo <span id="combo"></span>
     </div>
 
     <div id="musicBtn">🔊</div>
@@ -139,8 +140,17 @@
         /* CANVAS */
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
-        canvas.width = innerWidth;
-        canvas.height = innerHeight;
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = innerWidth * dpr;
+            canvas.height = innerHeight * dpr;
+            canvas.style.width = innerWidth + "px";
+            canvas.style.height = innerHeight + "px";
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        resize();
+        addEventListener("resize", resize);
 
         /* MUSIC */
         const bgMusic = document.getElementById("bgMusic");
@@ -148,83 +158,71 @@
         let musicOn = true;
         musicBtn.onclick = () => {
             musicOn = !musicOn;
-            if (musicOn) {
-                bgMusic.play();
-                musicBtn.innerText = "🔊";
-            } else {
-                bgMusic.pause();
-                musicBtn.innerText = "🔇";
-            }
+            musicOn ? bgMusic.play() : bgMusic.pause();
+            musicBtn.innerText = musicOn ? "🔊" : "🔇";
         };
 
-        /* GAME STATE */
-        let running = false;
-        let score = 0;
-        let level = 1;
+        /* RECORD */
+        let bestScore = localStorage.bestScore || 0;
+        let bestLevel = localStorage.bestLevel || 0;
+        record.innerText = `🏆 Best Score: ${bestScore} | Best Level: ${bestLevel}`;
 
-        /* PLAYER */
+        /* GAME */
+        let running = false,
+            score = 0,
+            level = 1,
+            combo = 0,
+            slow = 1;
         const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
+            x: innerWidth / 2,
+            y: innerHeight / 2,
             r: 15,
             hp: 100,
+            spd: 3,
+            pow: 1,
             angle: 0
         };
-
-        /* ARRAYS */
-        let enemies = [];
-        let blood = [];
-        let hazards = [];
+        let enemies = [],
+            particles = [];
+        let env = ["normal", "snow", "rain", "hell"];
 
         /* START */
         function startGame() {
             menu.style.display = "none";
-            resetGame();
+            score = 0;
+            level = 1;
+            combo = 0;
+            player.hp = 100;
+            player.pow = 1;
+            player.spd = 3;
+            spawn();
             running = true;
             bgMusic.volume = 0.4;
             bgMusic.play().catch(() => {});
             requestAnimationFrame(loop);
         }
 
-        function resetGame() {
-            score = 0;
-            level = 1;
-            player.hp = 100;
-            player.x = canvas.width / 2;
-            player.y = canvas.height / 2;
-            spawnLevel();
-        }
-
-        function spawnLevel() {
+        /* SPAWN */
+        function spawn() {
             enemies = [];
-            hazards = [];
-            for (let i = 0; i < level + 3; i++) {
+            const count = level % 5 === 0 ? 1 : level + 3;
+            for (let i = 0; i < count; i++) {
                 enemies.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    r: 12,
-                    speed: 1 + level * 0.25,
-                    hp: 3
-                });
-            }
-            for (let i = 0; i < level; i++) {
-                hazards.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    r: 55
+                    x: Math.random() * innerWidth,
+                    y: Math.random() * innerHeight,
+                    r: level % 5 === 0 ? 28 : 12,
+                    hp: level % 5 === 0 ? 20 : 3,
+                    spd: level % 5 === 0 ? 1.2 : 1 + level * 0.2,
+                    boss: level % 5 === 0
                 });
             }
         }
 
         /* INPUT */
         const keys = {};
-        window.addEventListener("keydown", e => {
-            keys[e.code] = true;
-            if (e.code.startsWith("Arrow") || e.code === "Space") e.preventDefault();
-        });
-        window.addEventListener("keyup", e => keys[e.code] = false);
-
-        window.addEventListener("mousemove", e => {
+        addEventListener("keydown", e => keys[e.code] = true);
+        addEventListener("keyup", e => keys[e.code] = false);
+        addEventListener("mousemove", e => {
             player.angle = Math.atan2(e.clientY - player.y, e.clientX - player.x);
         });
 
@@ -235,109 +233,98 @@
                     dy = e.y - player.y;
                 const d = Math.hypot(dx, dy);
                 const a = Math.atan2(dy, dx);
-                if (d < 70 && Math.abs(a - player.angle) < 0.6) {
-                    e.hp--;
-                    spawnBlood(e.x, e.y, a);
-                    if (e.hp <= 0) score += 10;
+                if (d < 80 && Math.abs(a - player.angle) < 0.7) {
+                    e.hp -= player.pow;
+                    combo++;
+                    slow = combo % 5 === 0 ? 0.4 : 1;
+                    navigator.vibrate(20);
+                    for (let i = 0; i < 8; i++) {
+                        particles.push({
+                            x: e.x,
+                            y: e.y,
+                            vx: (Math.random() - 0.5) * 4,
+                            vy: (Math.random() - 0.5) * 4,
+                            l: 20
+                        });
+                    }
+                    if (e.hp <= 0) score += e.boss ? 100 : 10;
                 }
             });
         }
-        window.addEventListener("mousedown", () => running && attack());
-        attackBtn.ontouchstart = () => attack();
-
-        /* BLOOD */
-        function spawnBlood(x, y, a) {
-            for (let i = 0; i < 12; i++) {
-                blood.push({
-                    x,
-                    y,
-                    vx: Math.cos(a) + (Math.random() - 0.5) * 2,
-                    vy: Math.sin(a) + (Math.random() - 0.5) * 2,
-                    life: 25
-                });
-            }
-        }
+        attackBtn.ontouchstart = attack;
+        addEventListener("mousedown", () => running && attack());
 
         /* JOYSTICKS */
         function joystick(el, cb) {
-            let active = false,
+            let act = false,
                 sx, sy;
             el.addEventListener("pointerdown", e => {
-                active = true;
+                act = true;
                 sx = e.clientX;
-                sy = e.clientY;
+                sy = e.clientY
             });
-            window.addEventListener("pointermove", e => {
-                if (!active) return;
-                cb(e.clientX - sx, e.clientY - sy);
-            });
-            window.addEventListener("pointerup", () => active = false);
+            addEventListener("pointermove", e => act && cb((e.clientX - sx) / 30, (e.clientY - sy) / 30));
+            addEventListener("pointerup", () => act = false);
         }
-
         joystick(joyMove, (dx, dy) => {
-            player.x += dx * 0.03;
-            player.y += dy * 0.03;
+            player.x += dx * player.spd;
+            player.y += dy * player.spd
         });
-        joystick(joyAim, (dx, dy) => {
-            player.angle = Math.atan2(dy, dx);
-        });
+        joystick(joyAim, (dx, dy) => Math.abs(dx) + Math.abs(dy) > 0.2 && (player.angle = Math.atan2(dy, dx)));
 
         /* LOOP */
         function loop() {
             if (!running) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, innerWidth, innerHeight);
+
+            /* ENV */
+            if (env[level % 4] === "snow") {
+                ctx.fillStyle = "rgba(255,255,255,.05)";
+                ctx.fillRect(0, 0, innerWidth, innerHeight);
+            }
+            if (env[level % 4] === "rain") {
+                ctx.strokeStyle = "rgba(100,100,255,.2)";
+                for (let i = 0; i < 20; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * innerWidth, Math.random() * innerHeight);
+                    ctx.lineTo(0, 10);
+                    ctx.stroke();
+                }
+            }
+            if (env[level % 4] === "hell") {
+                ctx.fillStyle = "rgba(255,0,0,.05)";
+                ctx.fillRect(0, 0, innerWidth, innerHeight);
+            }
 
             /* MOVE */
-            if (keys.KeyW || keys.ArrowUp) player.y -= 3;
-            if (keys.KeyS || keys.ArrowDown) player.y += 3;
-            if (keys.KeyA || keys.ArrowLeft) player.x -= 3;
-            if (keys.KeyD || keys.ArrowRight) player.x += 3;
-            if (keys.Space) attack();
+            if (keys.KeyW) player.y -= player.spd;
+            if (keys.KeyS) player.y += player.spd;
+            if (keys.KeyA) player.x -= player.spd;
+            if (keys.KeyD) player.x += player.spd;
 
-            /* HAZARDS */
-            hazards.forEach(h => {
-                ctx.beginPath();
-                ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255,0,0,.2)";
-                ctx.fill();
-                if (Math.hypot(player.x - h.x, player.y - h.y) < h.r) player.hp -= 0.2;
-            });
-
-            /* ENEMIES */
             enemies = enemies.filter(e => {
                 const dx = player.x - e.x,
                     dy = player.y - e.y;
                 const d = Math.hypot(dx, dy) || 1;
-                e.x += dx / d * e.speed;
-                e.y += dy / d * e.speed;
+                e.x += dx / d * e.spd * slow;
+                e.y += dy / d * e.spd * slow;
                 if (d < player.r + e.r) player.hp -= 0.3;
-
                 ctx.beginPath();
                 ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-                ctx.fillStyle = "crimson";
+                ctx.fillStyle = e.boss ? "purple" : "crimson";
                 ctx.fill();
-
                 return e.hp > 0;
             });
 
-            /* BLOOD DRAW */
-            blood = blood.filter(b => {
-                b.x += b.vx;
-                b.y += b.vy;
-                b.vy += 0.1;
-                b.life--;
-
-                ctx.beginPath();
-                ctx.moveTo(b.x, b.y);
-                ctx.lineTo(b.x - b.vx * 2, b.y - b.vy * 2);
-                ctx.strokeStyle = "darkred";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                return b.life > 0;
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.l--;
+                ctx.fillStyle = "darkred";
+                ctx.fillRect(p.x, p.y, 3, 3);
+                return p.l > 0;
             });
 
-            /* PLAYER */
             ctx.save();
             ctx.translate(player.x, player.y);
             ctx.rotate(player.angle);
@@ -353,19 +340,30 @@
             ctx.stroke();
             ctx.restore();
 
-            /* LEVEL UP */
             if (enemies.length === 0) {
                 level++;
-                spawnLevel();
+                player.hp += 10;
+                player.pow += 0.2;
+                player.spd += 0.1;
+                spawn();
             }
 
             hp.innerText = Math.floor(player.hp);
             score.innerText = score;
             level.innerText = level;
+            combo.innerText = combo;
+
+            slow += 0.02;
+            if (slow > 1) slow = 1;
 
             if (player.hp <= 0) {
                 running = false;
+                bestScore = Math.max(bestScore, score);
+                bestLevel = Math.max(bestLevel, level);
+                localStorage.bestScore = bestScore;
+                localStorage.bestLevel = bestLevel;
                 menu.style.display = "flex";
+                record.innerText = `🏆 Best Score: ${bestScore} | Best Level: ${bestLevel}`;
                 bgMusic.pause();
             }
 
